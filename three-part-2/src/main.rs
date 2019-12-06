@@ -85,8 +85,8 @@ fn intersection_distance_with_minimum_delay(wire1_path: String, wire2_path: Stri
         current_step += 1;
     };
 
-    let wire1_steps_to_intersection = wire1_coordinate_path.iter().position(|c| c.0 == first_intersecting_coordinate.0 && c.1 == first_intersecting_coordinate.1).unwrap() + 1;
-    let wire2_steps_to_intersection = wire2_coordinate_path.iter().position(|c| c.0 == first_intersecting_coordinate.0 && c.1 == first_intersecting_coordinate.1).unwrap() + 1;
+    let wire1_steps_to_intersection = wire1_coordinate_path.iter().position(|&c| c == first_intersecting_coordinate).unwrap() + 1;
+    let wire2_steps_to_intersection = wire2_coordinate_path.iter().position(|&c| c == first_intersecting_coordinate).unwrap() + 1;
 
     println!("{},{}", first_intersecting_coordinate.0, first_intersecting_coordinate.1);
 
@@ -97,6 +97,14 @@ fn intersection_distance_with_minimum_delay(wire1_path: String, wire2_path: Stri
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn example_zero() {
+        let wire1 = String::from("R8,U5,L5,D3");
+        let wire2 = String::from("U7,R6,D4,L4");
+        let answer = intersection_distance_with_minimum_delay(wire1, wire2);
+        assert_eq!(answer, 30);
+    }
 
     #[test]
     fn example_one() {
