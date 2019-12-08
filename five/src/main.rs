@@ -62,38 +62,54 @@ fn parse_first_value(first_value: i32) -> (Opcode, Vec<ParameterMode>) {
     // Convert to string, then take last two characters, then parse to int
     // Needs to work for both "2" and "1002"
     let mut as_string = first_value.to_string();
-    let opcode_string = as_string.split_off(as_string.len() - 2);
-    let opcode_int: i32 = opcode_string.parse().unwrap();
 
-    let mut parameter_modes: Vec<ParameterMode> = Vec::new();
+    if as_string.len() <= 2 {
+        let opcode_string = as_string;
+        let opcode_int: i32 = opcode_string.parse().unwrap();
+        return (int_to_opcode(opcode_int), Vec::new());
+    } else {
+        let opcode_string = as_string.split_off(as_string.len() - 2);
+        let opcode_int: i32 = opcode_string.parse().unwrap();
 
-    // Rest of string is parameter modes, from right to left
-    for parameter_mode_char in as_string.chars().rev() {
-        parameter_modes.push(char_to_parameter_mode(parameter_mode_char));
-    }
+        let mut parameter_modes: Vec<ParameterMode> = Vec::new();
 
-    return (int_to_opcode(opcode_int), parameter_modes);
+        // Rest of string is parameter modes, from right to left
+        for parameter_mode_char in as_string.chars().rev() {
+            parameter_modes.push(char_to_parameter_mode(parameter_mode_char));
+        }
+
+        return (int_to_opcode(opcode_int), parameter_modes);
+    };
 }
 
 fn run_intcode(mut program: Vec<i32>) -> Vec<i32> {
     let mut current_position = 0;
 
     loop {
-        let first_value = program[current_position];
-        let current_opcode = int_to_opcode(first_value);
+        let (current_opcode, parameter_modes) = parse_first_value(program[current_position]);
 
         if let Opcode::EndOfProgram = current_opcode {
             break;
         }
 
-        let operand1_location = program[current_position + 1] as usize;
-        let operand2_location = program[current_position + 2] as usize;
-        let operand1 = program[operand1_location];
-        let operand2 = program[operand2_location];
+        // Loop over operands
+        let operands: Vec<i32> = vec![0, 1].iter().map(|&operand_offset| -> i32 {
+            let operand = program[current_position + operand_offset + 1];
+
+            let parameter_mode = parameter_modes.get(operand_offset).unwrap_or(&ParameterMode::Position);
+
+            return match parameter_mode {
+                ParameterMode::Position => program[operand as usize],
+                ParameterMode::Immediate => operand,
+            }
+        }).collect();
+
+        println!("operand1: {}", operands[0]);
+        println!("operand2: {}", operands[1]);
 
         let result = match current_opcode {
-            Opcode::Add => operand1 + operand2,
-            Opcode::Multiply => operand1 * operand2,
+            Opcode::Add => operands[0] + operands[1],
+            Opcode::Multiply => operands[0] * operands[1],
             Opcode::GetInput => panic!("todo"),
             Opcode::Print => panic!("todo"),
             Opcode::EndOfProgram => panic!("impossible"),
@@ -148,12 +164,12 @@ mod tests {
     //     assert_eq!(answer, vec![30,1,1,4,2,5,6,0,99]);
     // }
 
-    // #[test]
-    // fn parameter_modes() {
-    //     let program = vec![1002,4,3,4,33];
-    //     let answer = run_intcode(program);
-    //     assert_eq!(answer, vec![1002,4,3,4,99]);
-    // }
+    #[test]
+    fn parameter_modes() {
+        let program = vec![1002,4,3,4,33];
+        let answer = run_intcode(program);
+        assert_eq!(answer, vec![1002,4,3,4,99]);
+    }
 
     #[test]
     fn test_parse_first_value() {
