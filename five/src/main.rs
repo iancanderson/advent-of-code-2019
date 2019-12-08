@@ -114,20 +114,21 @@ fn run_intcode(mut program: Vec<i32>) -> Vec<i32> {
             }
         }).collect();
 
-        println!("operand1: {}", operands[0]);
-        println!("operand2: {}", operands[1]);
-
-        let result = match current_opcode {
-            Opcode::Add => operands[0] + operands[1],
-            Opcode::Multiply => operands[0] * operands[1],
+        match current_opcode {
+            Opcode::Add => {
+                let result_location = program[current_position + 3] as usize;
+                program[result_location] = operands[0] + operands[1];
+            }
+            Opcode::Multiply => {
+                let result_location = program[current_position + 3] as usize;
+                program[result_location] = operands[0] * operands[1];
+            }
             Opcode::GetInput => panic!("todo"),
-            Opcode::Print => panic!("todo"),
+            Opcode::Print => {
+                println!("{}", program[operands[0] as usize]);
+            }
             Opcode::EndOfProgram => panic!("impossible"),
         };
-
-        let result_location = program[current_position + 3] as usize;
-
-        program[result_location] = result;
 
         current_position += num_values_in_instruction(current_opcode);
     }
