@@ -82,6 +82,16 @@ fn parse_first_value(first_value: i32) -> (Opcode, Vec<ParameterMode>) {
     };
 }
 
+fn num_values_in_instruction(opcode: Opcode) -> usize {
+    match opcode {
+        Opcode::Add => 4,
+        Opcode::Multiply => 4,
+        Opcode::GetInput => 2,
+        Opcode::Print => 2,
+        Opcode::EndOfProgram => 1,
+    }
+}
+
 fn run_intcode(mut program: Vec<i32>) -> Vec<i32> {
     let mut current_position = 0;
 
@@ -119,7 +129,7 @@ fn run_intcode(mut program: Vec<i32>) -> Vec<i32> {
 
         program[result_location] = result;
 
-        current_position += 4;
+        current_position += num_values_in_instruction(current_opcode);
     }
 
     return program;
