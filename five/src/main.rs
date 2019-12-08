@@ -1,3 +1,5 @@
+use std::io::{stdin,stdout,Write};
+
 fn main() {
     for noun in 00..100 {
         for verb in 00..100 {
@@ -92,6 +94,13 @@ fn num_values_in_instruction(opcode: Opcode) -> usize {
     }
 }
 
+fn get_input_as_int() -> i32 {
+    let mut s = String::new();
+    let _ = stdout().flush();
+    stdin().read_line(&mut s).expect("Did not enter a correct string");
+    return s.parse().expect("Input was not a valid integer");
+}
+
 fn run_intcode(mut program: Vec<i32>) -> Vec<i32> {
     let mut current_position = 0;
 
@@ -123,7 +132,10 @@ fn run_intcode(mut program: Vec<i32>) -> Vec<i32> {
                 let result_location = program[current_position + 3] as usize;
                 program[result_location] = operands[0] * operands[1];
             }
-            Opcode::GetInput => panic!("todo"),
+            Opcode::GetInput => {
+                let input = get_input_as_int();
+                program[operands[0] as usize] = input;
+            }
             Opcode::Print => {
                 println!("{}", program[operands[0] as usize]);
             }
