@@ -15,27 +15,73 @@ fn main() {
     }
 }
 
+#[derive(Debug, PartialEq)]
 enum Opcode {
     Add,
     Multiply,
+    GetInput,
+    Print,
     EndOfProgram,
 }
 
+#[derive(Debug, PartialEq)]
+enum ParameterMode {
+    Position,
+    Immediate,
+}
+
+fn char_to_parameter_mode(c: char) -> ParameterMode {
+    match c {
+        '0' => ParameterMode::Position,
+        '1' => ParameterMode::Immediate,
+        _ => panic!("invalid parameter mode")
+    }
+}
+
+// Opcode integer is now more complicated..
 fn int_to_opcode(int: i32) -> Opcode {
     if int == 1 {
         Opcode::Add
     } else if int == 2 {
         Opcode::Multiply
+    } else if int == 3 {
+        Opcode::GetInput
+    } else if int == 4 {
+        Opcode::Print
     } else {
         Opcode::EndOfProgram
     }
+}
+
+// Given the first value of an instruction, return
+// (Opcode, Vec<ParameterMode>)
+// The parameter mode vector represents the parameter modes
+// of each parameter in the instruction.
+fn parse_first_value(first_value: i32) -> (Opcode, Vec<ParameterMode>) {
+    // Get lst two digits for the opcode
+    // Convert to string, then take last two characters, then parse to int
+    // Needs to work for both "2" and "1002"
+    let mut as_string = first_value.to_string();
+    let opcode_string = as_string.split_off(as_string.len() - 2);
+    let opcode_int: i32 = opcode_string.parse().unwrap();
+
+    let mut parameter_modes: Vec<ParameterMode> = Vec::new();
+
+    // Rest of string is parameter modes, from right to left
+    for parameter_mode_char in as_string.chars().rev() {
+        parameter_modes.push(char_to_parameter_mode(parameter_mode_char));
+    }
+
+    return (int_to_opcode(opcode_int), parameter_modes);
 }
 
 fn run_intcode(mut program: Vec<i32>) -> Vec<i32> {
     let mut current_position = 0;
 
     loop {
-        let current_opcode = int_to_opcode(program[current_position]);
+        let first_value = program[current_position];
+        let current_opcode = int_to_opcode(first_value);
+
         if let Opcode::EndOfProgram = current_opcode {
             break;
         }
@@ -48,6 +94,8 @@ fn run_intcode(mut program: Vec<i32>) -> Vec<i32> {
         let result = match current_opcode {
             Opcode::Add => operand1 + operand2,
             Opcode::Multiply => operand1 * operand2,
+            Opcode::GetInput => panic!("todo"),
+            Opcode::Print => panic!("todo"),
             Opcode::EndOfProgram => panic!("impossible"),
         };
 
@@ -91,5 +139,30 @@ mod tests {
         let program = vec![1,1,1,4,99,5,6,0,99];
         let answer = run_intcode(program);
         assert_eq!(answer, vec![30,1,1,4,2,5,6,0,99]);
+    }
+
+    // #[test]
+    // fn opcode_3_and_4() {
+    //     let program = vec![1,1,1,4,99,5,6,0,99];
+    //     let answer = run_intcode(program);
+    //     assert_eq!(answer, vec![30,1,1,4,2,5,6,0,99]);
+    // }
+
+    // #[test]
+    // fn parameter_modes() {
+    //     let program = vec![1002,4,3,4,33];
+    //     let answer = run_intcode(program);
+    //     assert_eq!(answer, vec![1002,4,3,4,99]);
+    // }
+
+    #[test]
+    fn test_parse_first_value() {
+        assert_eq!(
+            parse_first_value(1002),
+            (
+                Opcode::Multiply,
+                vec![ParameterMode::Position, ParameterMode::Immediate],
+            )
+        );
     }
 }
