@@ -181,10 +181,31 @@ fn run_intcode(mut program: Vec<i32>) -> Vec<i32> {
                     continue;
                 }
             }
+            Opcode::LessThan => {
+                let operands = resolve_operands(&program, current_position, parameter_modes, 2);
+                let storage_location = program[current_position + 3] as usize;
+
+                program[storage_location] =
+                    if operands[0] < operands[1] {
+                        1
+                    } else {
+                        0
+                    }
+            }
+            Opcode::Equals => {
+                let operands = resolve_operands(&program, current_position, parameter_modes, 2);
+                let storage_location = program[current_position + 3] as usize;
+
+                program[storage_location] =
+                    if operands[0] == operands[1] {
+                        1
+                    } else {
+                        0
+                    }
+            }
             Opcode::EndOfProgram => {
                 break;
             }
-            _ => panic!("Unhandled Opcode: {}", current_opcode),
         };
 
         current_position += num_values_in_instruction(current_opcode);
@@ -269,5 +290,33 @@ mod tests {
         let program = vec![106, 1, 7, 1, 0, 0, 0, 99];
         let answer = run_intcode(program);
         assert_eq!(answer, vec![212, 1, 7, 1, 0, 0, 0, 99]);
+    }
+
+    #[test]
+    fn test_less_than_when_true() {
+        let program = vec![107, 1, 2, 0, 99];
+        let answer = run_intcode(program);
+        assert_eq!(answer, vec![1, 1, 2, 0, 99]);
+    }
+
+    #[test]
+    fn test_less_than_when_false() {
+        let program = vec![107, 2, 2, 0, 99];
+        let answer = run_intcode(program);
+        assert_eq!(answer, vec![0, 2, 2, 0, 99]);
+    }
+
+    #[test]
+    fn test_equals_when_true() {
+        let program = vec![108, 2, 2, 0, 99];
+        let answer = run_intcode(program);
+        assert_eq!(answer, vec![1, 2, 2, 0, 99]);
+    }
+
+    #[test]
+    fn test_equals_when_false() {
+        let program = vec![108, 1, 2, 0, 99];
+        let answer = run_intcode(program);
+        assert_eq!(answer, vec![0, 1, 2, 0, 99]);
     }
 }
