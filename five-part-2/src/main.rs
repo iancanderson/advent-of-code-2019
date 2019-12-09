@@ -145,10 +145,6 @@ fn run_intcode(mut program: Vec<i32>) -> Vec<i32> {
 
         println!("Running {}", current_opcode);
 
-        if let Opcode::EndOfProgram = current_opcode {
-            break;
-        }
-
         match current_opcode {
             Opcode::Add => {
                 let result_location = program[current_position + 3] as usize;
@@ -184,6 +180,9 @@ fn run_intcode(mut program: Vec<i32>) -> Vec<i32> {
                     current_position = program[current_position + 2] as usize;
                     continue;
                 }
+            }
+            Opcode::EndOfProgram => {
+                break;
             }
             _ => panic!("Unhandled Opcode: {}", current_opcode),
         };
@@ -226,15 +225,8 @@ mod tests {
         assert_eq!(answer, vec![30,1,1,4,2,5,6,0,99]);
     }
 
-    // #[test]
-    // fn opcode_3_and_4() {
-    //     let program = vec![1,1,1,4,99,5,6,0,99];
-    //     let answer = run_intcode(program);
-    //     assert_eq!(answer, vec![30,1,1,4,2,5,6,0,99]);
-    // }
-
     #[test]
-    fn parameter_modes() {
+    fn test_parameter_modes() {
         let program = vec![1002,4,3,4,33];
         let answer = run_intcode(program);
         assert_eq!(answer, vec![1002,4,3,4,99]);
