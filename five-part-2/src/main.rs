@@ -36,7 +36,7 @@ fn char_to_parameter_mode(c: char) -> ParameterMode {
     match c {
         '0' => ParameterMode::Position,
         '1' => ParameterMode::Immediate,
-        _ => panic!("invalid parameter mode")
+        _ => panic!("invalid parameter mode: {}", c)
     }
 }
 
@@ -128,10 +128,15 @@ fn resolve_operands(program: &Vec<i32>, current_position: usize, parameter_modes
 
         let parameter_mode = parameter_modes.get(operand_offset).unwrap_or(&ParameterMode::Position);
 
-        return match parameter_mode {
+        let resolved_operand = match parameter_mode {
             ParameterMode::Position => program[operand as usize],
             ParameterMode::Immediate => operand,
-        }
+        };
+
+        // println!("raw operand: {}", operand);
+        // println!("resolved operand: {}", resolved_operand);
+
+        return resolved_operand;
     }).collect();
 
     return operands;
@@ -143,7 +148,7 @@ fn run_intcode(mut program: Vec<i32>) -> Vec<i32> {
     loop {
         let (current_opcode, parameter_modes) = parse_first_value(program[current_position]);
 
-        println!("Running {}", current_opcode);
+        println!("Running {} at position {}", current_opcode, current_position);
 
         match current_opcode {
             Opcode::Add => {
@@ -166,18 +171,18 @@ fn run_intcode(mut program: Vec<i32>) -> Vec<i32> {
                 println!("Out: {}", program[operand as usize]);
             }
             Opcode::JumpIfTrue => {
-                let operands = resolve_operands(&program, current_position, parameter_modes, 1);
+                let operands = resolve_operands(&program, current_position, parameter_modes, 2);
 
                 if operands[0] != 0 {
-                    current_position = program[current_position + 2] as usize;
+                    current_position = operands[1] as usize;
                     continue;
                 }
             }
             Opcode::JumpIfFalse => {
-                let operands = resolve_operands(&program, current_position, parameter_modes, 1);
+                let operands = resolve_operands(&program, current_position, parameter_modes, 2);
 
                 if operands[0] == 0 {
-                    current_position = program[current_position + 2] as usize;
+                    current_position = operands[1] as usize;
                     continue;
                 }
             }
