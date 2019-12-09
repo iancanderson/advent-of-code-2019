@@ -104,6 +104,22 @@ fn get_input_as_int() -> i32 {
     return s.parse().expect("Input was not a valid integer");
 }
 
+fn resolve_two_operands(program: &Vec<i32>, current_position: usize, parameter_modes: Vec<ParameterMode>) -> Vec<i32> {
+    // Loop over operands
+    let operands: Vec<i32> = vec![0, 1].iter().map(|&operand_offset| -> i32 {
+        let operand = program[current_position + operand_offset + 1];
+
+        let parameter_mode = parameter_modes.get(operand_offset).unwrap_or(&ParameterMode::Position);
+
+        return match parameter_mode {
+            ParameterMode::Position => program[operand as usize],
+            ParameterMode::Immediate => operand,
+        }
+    }).collect();
+
+    return operands;
+}
+
 fn run_intcode(mut program: Vec<i32>) -> Vec<i32> {
     let mut current_position = 0;
 
@@ -116,33 +132,25 @@ fn run_intcode(mut program: Vec<i32>) -> Vec<i32> {
             break;
         }
 
-        // Loop over operands
-        let operands: Vec<i32> = vec![0, 1].iter().map(|&operand_offset| -> i32 {
-            let operand = program[current_position + operand_offset + 1];
-
-            let parameter_mode = parameter_modes.get(operand_offset).unwrap_or(&ParameterMode::Position);
-
-            return match parameter_mode {
-                ParameterMode::Position => program[operand as usize],
-                ParameterMode::Immediate => operand,
-            }
-        }).collect();
-
         match current_opcode {
             Opcode::Add => {
                 let result_location = program[current_position + 3] as usize;
+                let operands = resolve_two_operands(&program, current_position, parameter_modes);
                 program[result_location] = operands[0] + operands[1];
             }
             Opcode::Multiply => {
                 let result_location = program[current_position + 3] as usize;
+                let operands = resolve_two_operands(&program, current_position, parameter_modes);
                 program[result_location] = operands[0] * operands[1];
             }
             Opcode::GetInput => {
                 let input = get_input_as_int();
-                program[operands[0] as usize] = input;
+                let operand = program[current_position + 1];
+                program[operand as usize] = input;
             }
             Opcode::Print => {
-                println!("Out: {}", program[operands[0] as usize]);
+                let operand = program[current_position + 1];
+                println!("Out: {}", program[operand as usize]);
             }
             Opcode::EndOfProgram => panic!("impossible"),
         };
