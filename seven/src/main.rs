@@ -1,14 +1,39 @@
 use std::io::{stdin,stdout,Write};
 use std::fmt;
+use itertools::{Itertools, Permutations};
 
 fn main() {
     let program = vec![3,8,1001,8,10,8,105,1,0,0,21,30,51,72,81,94,175,256,337,418,99999,3,9,101,5,9,9,4,9,99,3,9,1001,9,3,9,1002,9,2,9,1001,9,2,9,1002,9,5,9,4,9,99,3,9,1002,9,4,9,101,4,9,9,102,5,9,9,101,3,9,9,4,9,99,3,9,1002,9,4,9,4,9,99,3,9,102,3,9,9,1001,9,4,9,4,9,99,3,9,1001,9,2,9,4,9,3,9,101,2,9,9,4,9,3,9,101,2,9,9,4,9,3,9,1001,9,1,9,4,9,3,9,101,1,9,9,4,9,3,9,101,1,9,9,4,9,3,9,101,1,9,9,4,9,3,9,1002,9,2,9,4,9,3,9,101,1,9,9,4,9,3,9,1002,9,2,9,4,9,99,3,9,102,2,9,9,4,9,3,9,1002,9,2,9,4,9,3,9,1001,9,1,9,4,9,3,9,102,2,9,9,4,9,3,9,1001,9,2,9,4,9,3,9,1002,9,2,9,4,9,3,9,101,1,9,9,4,9,3,9,101,1,9,9,4,9,3,9,101,2,9,9,4,9,3,9,102,2,9,9,4,9,99,3,9,102,2,9,9,4,9,3,9,102,2,9,9,4,9,3,9,1002,9,2,9,4,9,3,9,1001,9,1,9,4,9,3,9,1002,9,2,9,4,9,3,9,102,2,9,9,4,9,3,9,102,2,9,9,4,9,3,9,102,2,9,9,4,9,3,9,102,2,9,9,4,9,3,9,102,2,9,9,4,9,99,3,9,1001,9,2,9,4,9,3,9,101,1,9,9,4,9,3,9,1001,9,1,9,4,9,3,9,1001,9,1,9,4,9,3,9,102,2,9,9,4,9,3,9,101,1,9,9,4,9,3,9,1001,9,2,9,4,9,3,9,1002,9,2,9,4,9,3,9,1001,9,1,9,4,9,3,9,101,2,9,9,4,9,99,3,9,101,2,9,9,4,9,3,9,101,2,9,9,4,9,3,9,101,1,9,9,4,9,3,9,1001,9,1,9,4,9,3,9,1002,9,2,9,4,9,3,9,1001,9,1,9,4,9,3,9,1001,9,1,9,4,9,3,9,1001,9,2,9,4,9,3,9,1001,9,1,9,4,9,3,9,101,1,9,9,4,9,99];
 
-    run_intcode(program);
+    println!("Max thruster signal: {}", max_thruster_signal(&program));
 }
 
-fn max_thruster_signal(program: Vec<i32>) -> i32 {
-    return 1;
+fn thruster_signal(phase_setting_sequence: &Vec<&i32>, program: &Vec<i32>) -> i32 {
+    let input_signal = 0;
+
+    return phase_setting_sequence.iter().fold(input_signal, |signal, phase_setting| {
+        // Each iteration represents a program execution on a particular amplifier,
+        // with its own input signal and phase setting
+        let inputs = vec![**phase_setting, signal];
+
+        let program_copy = program.clone();
+
+        let (_, output_signal) = run_intcode_headless(program_copy, inputs);
+
+        // Value returned from this closure is the output signal from this amplifier
+        return output_signal.expect("Should be an output signal");
+    });
+}
+
+fn max_thruster_signal(program: &Vec<i32>) -> i32 {
+    // Loop over all permutations of [0,1,2,3,4]
+    // Find permutation with max thruster signal
+
+    return vec![0,1,2,3,4].iter().permutations(5).map(|phase_setting_sequence| {
+        let signal = thruster_signal(&phase_setting_sequence, program);
+        println!("Sequence {:?} gives output signal: {}", phase_setting_sequence, signal);
+        return signal;
+    }).max().expect("There will definitely be a maximum");
 }
 
 #[derive(Debug, PartialEq)]
@@ -147,7 +172,19 @@ fn resolve_operands(program: &Vec<i32>, current_position: usize, parameter_modes
 }
 
 fn run_intcode(mut program: Vec<i32>) -> Vec<i32> {
+    return run_intcode_headless(program, Vec::new()).0;
+}
+
+// Run a program
+//
+// inputs: represents values that will be consumed by GetInput instruction. if all input values
+// are consumed, the program will get input interactively from the user
+//
+// Returns optional last_output_value: will be the value of the last Output instruction
+fn run_intcode_headless(mut program: Vec<i32>, inputs: Vec<i32>) -> (Vec<i32>, Option<i32>) {
     let mut current_position = 0;
+    let mut current_input_index = 0;
+    let mut last_output_value = None;
 
     loop {
         let (current_opcode, parameter_modes) = parse_first_value(program[current_position]);
@@ -166,13 +203,24 @@ fn run_intcode(mut program: Vec<i32>) -> Vec<i32> {
                 program[result_location] = operands[0] * operands[1];
             }
             Opcode::GetInput => {
-                let input = get_input_as_int();
+                let resolved_input =
+                    if let Some(input) = inputs.get(current_input_index) {
+                        current_input_index += 1;
+                        *input
+                    } else {
+                        get_input_as_int()
+                    };
+
+                println!("Resolved input: {}", resolved_input);
+
                 let operand = program[current_position + 1];
-                program[operand as usize] = input;
+                program[operand as usize] = resolved_input;
             }
             Opcode::Print => {
                 let operand = program[current_position + 1];
-                println!("Out: {}", program[operand as usize]);
+                let output = program[operand as usize];
+                println!("Out: {}", output);
+                last_output_value = Some(output);
             }
             Opcode::JumpIfTrue => {
                 let operands = resolve_operands(&program, current_position, parameter_modes, 2);
@@ -220,7 +268,7 @@ fn run_intcode(mut program: Vec<i32>) -> Vec<i32> {
         current_position += num_values_in_instruction(current_opcode);
     }
 
-    return program;
+    return (program, last_output_value);
 }
 
 #[cfg(test)]
@@ -332,6 +380,12 @@ mod tests {
     #[test]
     fn test_max_thruster_example_one() {
         let program = vec![3,15,3,16,1002,16,10,16,1,16,15,15,4,15,99,0,0];
-        assert_eq!(max_thruster_signal(program), 43210);
+        assert_eq!(max_thruster_signal(&program), 43210);
+    }
+
+    #[test]
+    fn test_max_thruster_example_two() {
+        let program = vec![3,23,3,24,1002,24,10,24,1002,23,-1,23,101,5,23,23,1,24,23,23,4,23,99,0,0];
+        assert_eq!(max_thruster_signal(&program), 54321);
     }
 }
