@@ -42,7 +42,7 @@ fn thruster_signal_with_feedback(phase_setting_sequence: &Vec<&i32>, program: &V
 
     let mut child_threads = vec![];
 
-    for phase_setting in phase_setting_sequence {
+    for phase_setting in phase_setting_sequence.iter().take(4) {
         // This channel goes out of the amplifier
         let (tx, rx) = mpsc::channel();
         let program_copy = program.clone();
@@ -57,25 +57,30 @@ fn thruster_signal_with_feedback(phase_setting_sequence: &Vec<&i32>, program: &V
         last_input = rx;
     }
 
-    // Send 0 into the first amplifier
-    first_output.send(0).unwrap();
+    let last_phase_setting = phase_setting_sequence.last().unwrap();
+    let last_phase_setting_value = **last_phase_setting;
+    let last_program_copy = program.clone();
 
-    let received = last_input.recv().unwrap();
-    println!("Received: {}", received);
 
-    first_output.send(received).unwrap();
+    let (final_result_sender, final_result_receiver) = mpsc::channel();
+
+    child_threads.push(thread::spawn(move || {
+        // Send 0 into the first amplifier
+        first_output.send(0).unwrap();
+
+        let amp = Amplifier { output: first_output, input: last_input };
+
+        let final_result = run_intcode_with_channel(last_program_copy, last_phase_setting_value, amp.input, amp.output);
+
+        final_result_sender.send(final_result).unwrap();
+    }));
 
     for child_thread in child_threads {
         let _ = child_thread.join();
     }
 
-    let received2 = last_input.recv().unwrap();
-    println!("Received: {}", received2);
-
-    return received2;
-
-    // How to know when all threads halt?
-    // I guess the thread should return when they get a 99 instruction
+    let final_result = final_result_receiver.recv().unwrap().unwrap();
+    return final_result;
 }
 
 #[derive(Debug, PartialEq)]
@@ -201,9 +206,10 @@ fn resolve_operands(program: &Vec<i32>, current_position: usize, parameter_modes
 
 // Returns when it gets a 99 instruction
 // Returns nothing, only outputs to the channel
-fn run_intcode_with_channel(mut program: Vec<i32>, initial_input: i32, input: mpsc::Receiver<i32>, output: mpsc::Sender<i32>) {
+fn run_intcode_with_channel(mut program: Vec<i32>, initial_input: i32, input: mpsc::Receiver<i32>, output: mpsc::Sender<i32>) -> Option<i32> {
     let mut current_position = 0;
     let mut has_consumed_initial_input = false;
+    let mut last_output_value = None;
 
     loop {
         let (current_opcode, parameter_modes) = parse_first_value(program[current_position]);
@@ -240,7 +246,8 @@ fn run_intcode_with_channel(mut program: Vec<i32>, initial_input: i32, input: mp
                 let output_value = program[operand as usize];
 
                 println!("Out: {}", output_value);
-                output.send(output_value).unwrap()
+                last_output_value = Some(output_value);
+                output.send(output_value);
             }
             Opcode::JumpIfTrue => {
                 let operands = resolve_operands(&program, current_position, parameter_modes, 2);
@@ -287,6 +294,8 @@ fn run_intcode_with_channel(mut program: Vec<i32>, initial_input: i32, input: mp
 
         current_position += num_values_in_instruction(current_opcode);
     }
+
+    return last_output_value;
 }
 
 struct Amplifier {
@@ -296,8 +305,8 @@ struct Amplifier {
 
 #[cfg(test)]
 mod tests {
-
     use super::*;
+
     #[test]
     fn test_max_thruster_example_one() {
         let program = vec![3,26,1001,26,-4,26,3,27,1002,27,2,27,1,27,26,27,4,27,1001,28,-1,28,1005,28,6,99,0,0,5];
