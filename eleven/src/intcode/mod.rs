@@ -1,7 +1,6 @@
 use std::collections::HashMap;
-use std::io::{stdin,stdout,Write};
 use std::fmt;
-
+use std::sync::mpsc;
 
 #[derive(Debug, PartialEq)]
 enum Opcode {
@@ -110,21 +109,6 @@ fn num_values_in_instruction(opcode: Opcode) -> usize {
     }
 }
 
-fn get_input_as_int() -> i64 {
-    let mut s = String::new();
-    println!("Enter input:");
-    let _ = stdout().flush();
-    stdin().read_line(&mut s).expect("Did not enter a correct string");
-    if let Some('\n')=s.chars().next_back() {
-        s.pop();
-    }
-    if let Some('\r')=s.chars().next_back() {
-        s.pop();
-    }
-    return s.parse().expect("Input was not a valid integer");
-}
-
-
 // Resolves to a location
 fn resolve_destination(ec: &ExecutionContext, parameter_modes: &Vec<ParameterMode>, position_offset: usize) -> i64 {
     let parameter_mode = parameter_modes.get(position_offset - 1).unwrap_or(&ParameterMode::Position);
@@ -207,8 +191,7 @@ impl ExecutionContext {
     }
 }
 
-pub fn run_intcode_with_output(program: Vec<i64>) -> (Vec<i64>, Vec<i64>) {
-    let mut outputs = Vec::new();
+pub fn run_intcode_with_channels(program: Vec<i64>, input: mpsc::Receiver<i64>, output: mpsc::Sender<i64>) -> Vec<i64> {
     let debug = false;
 
     let mut ec = ExecutionContext {
@@ -240,15 +223,15 @@ pub fn run_intcode_with_output(program: Vec<i64>) -> (Vec<i64>, Vec<i64>) {
                 ec.set(destination, operands[0] * operands[1]);
             }
             Opcode::GetInput => {
-                let input = get_input_as_int();
+                let input = input.recv().unwrap();
                 let destination = resolve_destination(&ec, &parameter_modes, 1);
                 ec.set(destination, input);
             }
             Opcode::Print => {
                 let operands = resolve_operands(&ec, &parameter_modes, 1);
                 let output_value = operands[0];
-                println!("Out: {}", output_value);
-                outputs.push(output_value);
+                // println!("Out: {}", output_value);
+                output.send(output_value).unwrap();
             }
             Opcode::JumpIfTrue => {
                 let operands = resolve_operands(&ec, &parameter_modes, 2);
@@ -303,7 +286,10 @@ pub fn run_intcode_with_output(program: Vec<i64>) -> (Vec<i64>, Vec<i64>) {
         ec.current_position += num_values_in_instruction(current_opcode);
     }
 
-    return (ec.program, outputs);
+    // Send 99 to signal that we're done
+    output.send(99).unwrap();
+
+    return ec.program;
 }
 
 #[cfg(test)]
