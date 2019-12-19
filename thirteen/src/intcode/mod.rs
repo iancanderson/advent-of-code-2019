@@ -286,8 +286,8 @@ pub fn run_intcode_with_channels(program: Vec<i64>, input: mpsc::Receiver<i64>, 
         ec.current_position += num_values_in_instruction(current_opcode);
     }
 
-    // Send 99 to signal that we're done
-    output.send(99).unwrap();
+    // Send -99 to signal that we're done
+    output.send(-99).unwrap();
 
     return ec.program;
 }
