@@ -1,8 +1,5 @@
 mod intcode;
 
-extern crate rand;
-
-use rand::Rng;
 use std::collections::HashMap;
 use std::fs;
 use std::sync::mpsc;
@@ -11,7 +8,7 @@ use std::{thread, time};
 fn main() {
     let input = fs::read_to_string("input.txt").expect("Something went wrong reading the file");
 
-    let mut program: Vec<i64> = input.trim_end().split(",").map(|n| n.parse().unwrap()).collect();
+    let program: Vec<i64> = input.trim_end().split(",").map(|n| n.parse().unwrap()).collect();
 
     run_robot(program);
     // println!("Score: {}", score);
@@ -26,31 +23,12 @@ enum MovementCommand {
 }
 
 impl MovementCommand {
-    fn from_int(int: i64) -> MovementCommand {
-        match int {
-            1 => North,
-            2 => South,
-            3 => West,
-            4 => East,
-            n => panic!("Unknown MovementCommand {}", n),
-        }
-    }
-
     fn to_int(&self) -> i64 {
         match self {
             North => 1,
             South => 2,
             West => 3,
             East => 4,
-        }
-    }
-
-    fn turn_clockwise(&self) -> MovementCommand {
-        match self {
-            North => East,
-            South => West,
-            West => North,
-            East => South,
         }
     }
 }
@@ -169,20 +147,27 @@ fn run_robot(program: Vec<i64>) -> i64 {
 
     // represents the path from origin
     let mut path = vec![robot_position];
+    let mut shortest_path_length_to_oxygen = None;
 
     loop {
-        thread::sleep(time::Duration::from_millis(20));
+        // thread::sleep(time::Duration::from_millis(40));
 
         // Look for an adjacent unexplored point
         robot_direction =
             match robot_position.adjacent_points().iter().find(|(_, p)| !map.contains_key(p)) {
                 None => {
                     // We've reached a dead end: time to go back
-                    path.pop().unwrap();
-                    let last_position = path.pop().unwrap();
-                    let direction = robot_position.direction_to(last_position);
-
-                    direction
+                    if let None = path.pop() {
+                        println!("done");
+                        break;
+                    }
+                    if let Some(last_position) = path.pop() {
+                        let direction = robot_position.direction_to(last_position);
+                        direction
+                    } else {
+                        println!("done");
+                        break;
+                    }
                 },
                 Some((direction, _)) => { *direction }
             };
@@ -214,12 +199,14 @@ fn run_robot(program: Vec<i64>) -> i64 {
                 map.insert(robot_position, OxygenSystem);
                 path.push(robot_position);
 
+                shortest_path_length_to_oxygen = Some(path.len());
+
                 println!("Oxygen system at: {:?}", robot_position);
                 println!("Path length: {:?}", path.len());
 
                 // We're done!
                 // If we want to explore the whole map, we can take out this break
-                break;
+                // break;
             },
         }
 
@@ -229,7 +216,13 @@ fn run_robot(program: Vec<i64>) -> i64 {
         print_map(&map, robot_position);
     }
 
-    robot_thread.join().unwrap();
+    println!("Waiting for robot to finish");
+    // robot_thread.join().unwrap();
 
-    return 1;
+    // Now we have the whole map
+    print_map(&map, robot_position);
+
+    println!("Shortest path length: {}", shortest_path_length_to_oxygen.unwrap());
+
+    return shortest_path_length_to_oxygen.unwrap() as i64;
 }
